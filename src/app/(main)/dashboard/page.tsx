@@ -1,36 +1,148 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { VocabWord, SRSCard } from '@/types'
+
+const VISIBLE_COUNT = 15
 
 export default function DashboardPage() {
   const [vocab, setVocab] = useState<VocabWord[]>([])
   const [dueCards, setDueCards] = useState<SRSCard[]>([])
   const [loading, setLoading] = useState(true)
+  const [wordsExpanded, setWordsExpanded] = useState(false)
 
-  useEffect(() => {
-    Promise.all([
+  const [spanishInput, setSpanishInput] = useState('')
+  const [translationInput, setTranslationInput] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [verifyError, setVerifyError] = useState('')
+  const [adding, setAdding] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  async function loadData() {
+    const [v, s] = await Promise.all([
       fetch('/api/vocabulary').then(r => r.json()),
       fetch('/api/srs').then(r => r.json()),
-    ]).then(([v, s]) => {
-      setVocab(Array.isArray(v) ? v : [])
-      setDueCards(Array.isArray(s) ? s : [])
-      setLoading(false)
-    })
-  }, [])
-
-  const weeklyWords = vocab.filter(w => w.is_weekly_focus)
-
-  if (loading) {
-    return <div className="text-gray-400 text-center py-16">Loading…</div>
+    ])
+    setVocab(Array.isArray(v) ? v : [])
+    setDueCards(Array.isArray(s) ? s : [])
+    setLoading(false)
   }
+
+  useEffect(() => { loadData() }, [])
+
+  function handleSpanishChange(value: string) {
+    setSpanishInput(value)
+    setVerifyError('')
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    if (value.trim().length < 2) {
+      setTranslationInput('')
+      return
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setVerifying(true)
+      try {
+        const res = await fetch('/api/verify-word', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word: value.trim() }),
+        })
+        const data = await res.json()
+        if (data.valid === false) {
+          setVerifyError(data.corrected ? `Did you mean "${data.corrected}"?` : 'Not a recognised Spanish word')
+        } else if (data.translation) {
+          setTranslationInput(data.translation)
+          setVerifyError('')
+        }
+      } catch {
+        // silently fail — don't block the user
+      } finally {
+        setVerifying(false)
+      }
+    }, 800)
+  }
+
+  async function handleAdd() {
+    if (!spanishInput.trim() || !translationInput.trim() || adding) return
+    setAdding(true)
+    await fetch('/api/vocabulary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        word: spanishInput.trim(),
+        translation: translationInput.trim(),
+        example_sentence: null,
+        notes: null,
+        tags: [],
+      }),
+    })
+    setSpanishInput('')
+    setTranslationInput('')
+    setVerifyError('')
+    setAdding(false)
+    loadData()
+  }
+
+  async function togglePractice(w: VocabWord) {
+    const updated = await fetch('/api/vocabulary', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: w.id, is_weekly_focus: !w.is_weekly_focus }),
+    }).then(r => r.json())
+    setVocab(ws => ws.map(x => x.id === w.id ? updated : x))
+  }
+
+  const visibleWords = wordsExpanded ? vocab : vocab.slice(0, VISIBLE_COUNT)
+  const hiddenCount = vocab.length - VISIBLE_COUNT
+
+  if (loading) return <div className="text-gray-400 text-center py-16">Loading…</div>
+
+  const selectedCount = vocab.filter(w => w.is_weekly_focus).length
 
   return (
     <div className="flex flex-col gap-6 py-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-800">¡Hola! 👋</h1>
         <p className="text-gray-500 text-sm mt-1">Ready to practise your Spanish today?</p>
+      </div>
+
+      {/* Quick add */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              value={spanishInput}
+              onChange={e => handleSpanishChange(e.target.value)}
+              placeholder="Spanish word…"
+              className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                verifyError ? 'border-red-300 focus:ring-red-300' : 'border-gray-200'
+              }`}
+            />
+            {verifying && (
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                checking…
+              </span>
+            )}
+          </div>
+          <input
+            value={translationInput}
+            onChange={e => setTranslationInput(e.target.value)}
+            placeholder="English translation"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={adding || !spanishInput.trim() || !translationInput.trim()}
+            className="w-10 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xl flex items-center justify-center flex-shrink-0 transition-colors"
+          >
+            {adding ? '…' : '+'}
+          </button>
+        </div>
+        {verifyError && (
+          <p className="text-xs text-red-500 mt-1.5 pl-0.5">{verifyError}</p>
+        )}
       </div>
 
       {/* Stats row */}
@@ -40,8 +152,8 @@ export default function DashboardPage() {
           <div className="text-xs text-gray-500 mt-0.5">Total words</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
-          <div className="text-2xl font-bold text-blue-600">{weeklyWords.length}</div>
-          <div className="text-xs text-gray-500 mt-0.5">This week</div>
+          <div className="text-2xl font-bold text-blue-600">{selectedCount}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Selected</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
           <div className="text-2xl font-bold text-orange-500">{dueCards.length}</div>
@@ -49,22 +161,60 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Weekly focus words */}
+      {/* Words list */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-gray-700">This week&apos;s words</h2>
+          <h2 className="font-semibold text-gray-700">
+            Words <span className="text-gray-400 font-normal text-sm">({vocab.length})</span>
+          </h2>
           <Link href="/vocabulary" className="text-emerald-600 text-sm hover:underline">Manage →</Link>
         </div>
-        {weeklyWords.length === 0 ? (
-          <p className="text-gray-400 text-sm">No weekly focus words yet. <Link href="/vocabulary" className="text-emerald-600 hover:underline">Add some →</Link></p>
+
+        {vocab.length === 0 ? (
+          <p className="text-gray-400 text-sm">No words yet — add one above!</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {weeklyWords.map(w => (
-              <span key={w.id} className="bg-emerald-50 text-emerald-700 text-sm px-3 py-1 rounded-full font-medium">
-                {w.word} <span className="text-emerald-400">· {w.translation}</span>
-              </span>
-            ))}
-          </div>
+          <>
+            <div className="flex flex-col">
+              {visibleWords.map(w => (
+                <div key={w.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                  <button
+                    onClick={() => togglePractice(w)}
+                    title={w.is_weekly_focus ? 'Remove from practice' : 'Select for practice'}
+                    className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      w.is_weekly_focus
+                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                        : 'border-gray-300 hover:border-emerald-400'
+                    }`}
+                  >
+                    {w.is_weekly_focus && (
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                  <span className="font-medium text-gray-800 text-sm">{w.word}</span>
+                  <span className="text-gray-400 text-sm flex-1 truncate">{w.translation}</span>
+                </div>
+              ))}
+            </div>
+
+            {hiddenCount > 0 && !wordsExpanded && (
+              <button
+                onClick={() => setWordsExpanded(true)}
+                className="mt-3 w-full text-center text-sm text-gray-400 hover:text-emerald-600 transition-colors py-1"
+              >
+                Show {hiddenCount} more…
+              </button>
+            )}
+            {wordsExpanded && vocab.length > VISIBLE_COUNT && (
+              <button
+                onClick={() => setWordsExpanded(false)}
+                className="mt-3 w-full text-center text-sm text-gray-400 hover:text-emerald-600 transition-colors py-1"
+              >
+                Show less
+              </button>
+            )}
+          </>
         )}
       </div>
 
