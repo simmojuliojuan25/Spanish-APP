@@ -50,14 +50,16 @@ export default function DashboardPage() {
           body: JSON.stringify({ word: value.trim() }),
         })
         const data = await res.json()
-        if (data.valid === false) {
+        if (!res.ok) {
+          // server error — let the user fill in the translation manually
+        } else if (data.valid === false) {
           setVerifyError(data.corrected ? `Did you mean "${data.corrected}"?` : 'Not a recognised Spanish word')
         } else if (data.translation) {
           setTranslationInput(data.translation)
           setVerifyError('')
         }
       } catch {
-        // silently fail — don't block the user
+        // network error — let the user fill in the translation manually
       } finally {
         setVerifying(false)
       }
