@@ -69,22 +69,30 @@ export default function DashboardPage() {
   async function handleAdd() {
     if (!spanishInput.trim() || !translationInput.trim() || adding) return
     setAdding(true)
-    await fetch('/api/vocabulary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        word: spanishInput.trim(),
-        translation: translationInput.trim(),
-        example_sentence: null,
-        notes: null,
-        tags: [],
-      }),
-    })
-    setSpanishInput('')
-    setTranslationInput('')
-    setVerifyError('')
-    setAdding(false)
-    loadData()
+    try {
+      const res = await fetch('/api/vocabulary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          word: spanishInput.trim(),
+          translation: translationInput.trim(),
+          example_sentence: null,
+          notes: null,
+          tags: [],
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setVerifyError(data.error ?? 'Failed to save word')
+        return
+      }
+      setVocab(ws => [data, ...ws])
+      setSpanishInput('')
+      setTranslationInput('')
+      setVerifyError('')
+    } finally {
+      setAdding(false)
+    }
   }
 
   async function togglePractice(w: VocabWord) {
