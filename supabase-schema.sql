@@ -29,5 +29,11 @@ create index if not exists srs_cards_next_review_idx on srs_cards(next_review_at
 alter table vocabulary enable row level security;
 alter table srs_cards enable row level security;
 
+-- RLS policies: allow all operations for all roles
 create policy "Allow all" on vocabulary for all using (true) with check (true);
 create policy "Allow all" on srs_cards for all using (true) with check (true);
+
+-- Table-level grants: PostgreSQL requires a GRANT *and* a passing RLS policy.
+-- Without this, the anon role gets "permission denied" even with an allow-all policy.
+grant select, insert, update, delete on table vocabulary to anon;
+grant select, insert, update, delete on table srs_cards to anon;
