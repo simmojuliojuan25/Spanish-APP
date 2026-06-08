@@ -8,6 +8,7 @@ type Mode = 'list' | 'add'
 export default function VocabularyPage() {
   const [words, setWords] = useState<VocabWord[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>('list')
   const [search, setSearch] = useState('')
 
@@ -18,11 +19,20 @@ export default function VocabularyPage() {
   const [notes, setNotes] = useState('')
   const [tags, setTags] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   async function load() {
-    const data = await fetch('/api/vocabulary').then(r => r.json())
-    setWords(Array.isArray(data) ? data : [])
-    setLoading(false)
+    try {
+      const res = await fetch('/api/vocabulary')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setWords(Array.isArray(data) ? data : [])
+      setLoadError(null)
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -30,21 +40,29 @@ export default function VocabularyPage() {
   async function addWord(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    await fetch('/api/vocabulary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        word: word.trim(),
-        translation: translation.trim(),
-        example_sentence: exampleSentence.trim() || null,
-        notes: notes.trim() || null,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      }),
-    })
-    setWord(''); setTranslation(''); setExampleSentence(''); setNotes(''); setTags('')
-    setSaving(false)
-    setMode('list')
-    load()
+    setSaveError(null)
+    try {
+      const res = await fetch('/api/vocabulary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          word: word.trim(),
+          translation: translation.trim(),
+          example_sentence: exampleSentence.trim() || null,
+          notes: notes.trim() || null,
+          tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setWord(''); setTranslation(''); setExampleSentence(''); setNotes(''); setTags('')
+      setMode('list')
+      load()
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function deleteWord(id: string) {
@@ -85,6 +103,7 @@ export default function VocabularyPage() {
   )
 
   if (loading) return <div className="text-gray-400 text-center py-16">Loading…</div>
+  if (loadError) return <div className="text-red-500 text-center py-16">Failed to load vocabulary: {loadError}</div>
 
   return (
     <div className="flex flex-col gap-4 py-4">
@@ -134,6 +153,9 @@ export default function VocabularyPage() {
               <input value={tags} onChange={e => setTags(e.target.value)} placeholder="verbs, travel" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
           </div>
+          {saveError && (
+            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>
+          )}
           <button type="submit" disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
             {saving ? 'Saving…' : 'Save word'}
           </button>
