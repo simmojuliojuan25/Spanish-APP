@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [translationInput, setTranslationInput] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState('')
+  const [suggestion, setSuggestion] = useState('')
   const [adding, setAdding] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   function handleSpanishChange(value: string) {
     setSpanishInput(value)
     setVerifyError('')
+    setSuggestion('')
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     if (value.trim().length < 2) {
@@ -53,7 +55,8 @@ export default function DashboardPage() {
         if (!res.ok) {
           // server error — let the user fill in the translation manually
         } else if (data.valid === false) {
-          setVerifyError(data.corrected ? `Did you mean "${data.corrected}"?` : 'Not a recognised Spanish word')
+          setSuggestion(data.corrected ?? '')
+          setVerifyError(data.corrected ? 'Did you mean' : 'Not a recognised Spanish word')
         } else if (data.translation) {
           setTranslationInput(data.translation)
           setVerifyError('')
@@ -90,6 +93,7 @@ export default function DashboardPage() {
       setSpanishInput('')
       setTranslationInput('')
       setVerifyError('')
+      setSuggestion('')
     } finally {
       setAdding(false)
     }
@@ -151,7 +155,20 @@ export default function DashboardPage() {
           </button>
         </div>
         {verifyError && (
-          <p className="text-xs text-red-500 mt-1.5 pl-0.5">{verifyError}</p>
+          <div className="mt-1.5 pl-0.5 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-red-500">
+              {suggestion ? `${verifyError}` : verifyError}
+            </span>
+            {suggestion && (
+              <button
+                type="button"
+                onClick={() => handleSpanishChange(suggestion)}
+                className="text-xs px-2 py-0.5 rounded-full bg-red-50 border border-red-300 text-red-600 hover:bg-red-100 active:bg-red-200 cursor-pointer font-medium"
+              >
+                {suggestion}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
