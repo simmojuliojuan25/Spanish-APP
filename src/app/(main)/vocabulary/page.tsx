@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { VocabWord } from '@/types'
 
 type Mode = 'list' | 'add'
@@ -21,6 +21,9 @@ export default function VocabularyPage() {
   const [tags, setTags] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [translating, setTranslating] = useState(false)
+  const debounceSpRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceEnRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function load() {
     try {
@@ -37,6 +40,42 @@ export default function VocabularyPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  function handleSpanishChange(value: string) {
+    setWord(value)
+    if (debounceSpRef.current) clearTimeout(debounceSpRef.current)
+    if (value.trim().length < 2) { setTranslation(''); return }
+    debounceSpRef.current = setTimeout(async () => {
+      setTranslating(true)
+      try {
+        const res = await fetch('/api/verify-word', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word: value.trim() }),
+        })
+        const data = await res.json()
+        if (res.ok && data.translation) setTranslation(data.translation)
+      } catch { /* let user fill manually */ } finally { setTranslating(false) }
+    }, 800)
+  }
+
+  function handleEnglishChange(value: string) {
+    setTranslation(value)
+    if (debounceEnRef.current) clearTimeout(debounceEnRef.current)
+    if (value.trim().length < 2) { setWord(''); return }
+    debounceEnRef.current = setTimeout(async () => {
+      setTranslating(true)
+      try {
+        const res = await fetch('/api/translate-word', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word: value.trim() }),
+        })
+        const data = await res.json()
+        if (res.ok && data.translation) setWord(data.translation)
+      } catch { /* let user fill manually */ } finally { setTranslating(false) }
+    }, 800)
+  }
 
   async function addWord(e: React.FormEvent) {
     e.preventDefault()
@@ -131,9 +170,18 @@ export default function VocabularyPage() {
         <form onSubmit={addWord} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">
           <h2 className="font-semibold text-gray-700">New word or phrase</h2>
           <div className="flex items-end gap-2">
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <label className="text-xs text-gray-500 mb-1 block">{swapped ? 'English' : 'Spanish'} *</label>
-              <input required value={swapped ? translation : word} onChange={e => swapped ? setTranslation(e.target.value) : setWord(e.target.value)} placeholder={swapped ? 'to walk' : 'caminar'} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+              <input
+                required
+                value={swapped ? translation : word}
+                onChange={e => swapped ? handleEnglishChange(e.target.value) : handleSpanishChange(e.target.value)}
+                placeholder={swapped ? 'to walk' : 'caminar'}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              {translating && (
+                <span className="absolute right-2.5 top-[calc(50%+8px)] -translate-y-1/2 text-xs text-gray-400 pointer-events-none">translating…</span>
+              )}
             </div>
             <button
               type="button"
@@ -143,9 +191,18 @@ export default function VocabularyPage() {
             >
               ⇄
             </button>
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <label className="text-xs text-gray-500 mb-1 block">{swapped ? 'Spanish' : 'English'} *</label>
-              <input required value={swapped ? word : translation} onChange={e => swapped ? setWord(e.target.value) : setTranslation(e.target.value)} placeholder={swapped ? 'caminar' : 'to walk'} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+              <input
+                required
+                value={swapped ? word : translation}
+                onChange={e => swapped ? handleSpanishChange(e.target.value) : handleEnglishChange(e.target.value)}
+                placeholder={swapped ? 'caminar' : 'to walk'}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              {translating && (
+                <span className="absolute right-2.5 top-[calc(50%+8px)] -translate-y-1/2 text-xs text-gray-400 pointer-events-none">translating…</span>
+              )}
             </div>
           </div>
           <div>

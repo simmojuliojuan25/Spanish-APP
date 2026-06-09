@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [suggestion, setSuggestion] = useState('')
   const [adding, setAdding] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceEnRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function loadData() {
     const [v, s] = await Promise.all([
@@ -64,6 +65,37 @@ export default function DashboardPage() {
         }
       } catch {
         // network error — let the user fill in the translation manually
+      } finally {
+        setVerifying(false)
+      }
+    }, 800)
+  }
+
+  function handleEnglishChange(value: string) {
+    setTranslationInput(value)
+    setVerifyError('')
+    setSuggestion('')
+    if (debounceEnRef.current) clearTimeout(debounceEnRef.current)
+
+    if (value.trim().length < 2) {
+      setSpanishInput('')
+      return
+    }
+
+    debounceEnRef.current = setTimeout(async () => {
+      setVerifying(true)
+      try {
+        const res = await fetch('/api/translate-word', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word: value.trim() }),
+        })
+        const data = await res.json()
+        if (res.ok && data.translation) {
+          setSpanishInput(data.translation)
+        }
+      } catch {
+        // network error — let the user fill in the Spanish manually
       } finally {
         setVerifying(false)
       }
@@ -129,13 +161,13 @@ export default function DashboardPage() {
           <div className="relative flex-1">
             <input
               value={swapped ? translationInput : spanishInput}
-              onChange={e => swapped ? setTranslationInput(e.target.value) : handleSpanishChange(e.target.value)}
+              onChange={e => swapped ? handleEnglishChange(e.target.value) : handleSpanishChange(e.target.value)}
               placeholder={swapped ? 'English translation…' : 'Spanish word…'}
               className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                 !swapped && verifyError ? 'border-red-300 focus:ring-red-300' : 'border-gray-200'
               }`}
             />
-            {!swapped && verifying && (
+            {verifying && (
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                 checking…
               </span>
@@ -152,13 +184,13 @@ export default function DashboardPage() {
           <div className="relative flex-1">
             <input
               value={swapped ? spanishInput : translationInput}
-              onChange={e => swapped ? handleSpanishChange(e.target.value) : setTranslationInput(e.target.value)}
+              onChange={e => swapped ? handleSpanishChange(e.target.value) : handleEnglishChange(e.target.value)}
               placeholder={swapped ? 'Spanish word…' : 'English translation…'}
               className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                 swapped && verifyError ? 'border-red-300 focus:ring-red-300' : 'border-gray-200'
               }`}
             />
-            {swapped && verifying && (
+            {verifying && (
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                 checking…
               </span>
