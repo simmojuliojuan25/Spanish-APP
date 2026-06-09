@@ -14,6 +14,7 @@ export default function DashboardPage() {
 
   const [spanishInput, setSpanishInput] = useState('')
   const [translationInput, setTranslationInput] = useState('')
+  const [swapped, setSwapped] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState('')
   const [suggestion, setSuggestion] = useState('')
@@ -127,25 +128,42 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
-              value={spanishInput}
-              onChange={e => handleSpanishChange(e.target.value)}
-              placeholder="Spanish word…"
+              value={swapped ? translationInput : spanishInput}
+              onChange={e => swapped ? setTranslationInput(e.target.value) : handleSpanishChange(e.target.value)}
+              placeholder={swapped ? 'English translation…' : 'Spanish word…'}
               className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
-                verifyError ? 'border-red-300 focus:ring-red-300' : 'border-gray-200'
+                !swapped && verifyError ? 'border-red-300 focus:ring-red-300' : 'border-gray-200'
               }`}
             />
-            {verifying && (
+            {!swapped && verifying && (
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                 checking…
               </span>
             )}
           </div>
-          <input
-            value={translationInput}
-            onChange={e => setTranslationInput(e.target.value)}
-            placeholder="English translation"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
+          <button
+            type="button"
+            onClick={() => setSwapped(s => !s)}
+            title="Swap English / Spanish"
+            className="px-2 text-gray-400 hover:text-emerald-600 transition-colors text-base flex-shrink-0"
+          >
+            ⇄
+          </button>
+          <div className="relative flex-1">
+            <input
+              value={swapped ? spanishInput : translationInput}
+              onChange={e => swapped ? handleSpanishChange(e.target.value) : setTranslationInput(e.target.value)}
+              placeholder={swapped ? 'Spanish word…' : 'English translation…'}
+              className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                swapped && verifyError ? 'border-red-300 focus:ring-red-300' : 'border-gray-200'
+              }`}
+            />
+            {swapped && verifying && (
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                checking…
+              </span>
+            )}
+          </div>
           <button
             onClick={handleAdd}
             disabled={adding || !spanishInput.trim() || !translationInput.trim()}
