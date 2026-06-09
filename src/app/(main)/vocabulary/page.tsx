@@ -15,6 +15,7 @@ export default function VocabularyPage() {
   // Add form state
   const [word, setWord] = useState('')
   const [translation, setTranslation] = useState('')
+  const [swapped, setSwapped] = useState(false)
   const [exampleSentence, setExampleSentence] = useState('')
   const [notes, setNotes] = useState('')
   const [tags, setTags] = useState('')
@@ -129,14 +130,22 @@ export default function VocabularyPage() {
       {mode === 'add' && (
         <form onSubmit={addWord} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">
           <h2 className="font-semibold text-gray-700">New word or phrase</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Spanish *</label>
-              <input required value={word} onChange={e => setWord(e.target.value)} placeholder="caminar" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 mb-1 block">{swapped ? 'English' : 'Spanish'} *</label>
+              <input required value={swapped ? translation : word} onChange={e => swapped ? setTranslation(e.target.value) : setWord(e.target.value)} placeholder={swapped ? 'to walk' : 'caminar'} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">English *</label>
-              <input required value={translation} onChange={e => setTranslation(e.target.value)} placeholder="to walk" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            <button
+              type="button"
+              onClick={() => setSwapped(s => !s)}
+              title="Swap English / Spanish"
+              className="mb-0.5 px-2 py-2 text-gray-400 hover:text-emerald-600 transition-colors text-base leading-none"
+            >
+              ⇄
+            </button>
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 mb-1 block">{swapped ? 'Spanish' : 'English'} *</label>
+              <input required value={swapped ? word : translation} onChange={e => swapped ? setWord(e.target.value) : setTranslation(e.target.value)} placeholder={swapped ? 'caminar' : 'to walk'} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
           </div>
           <div>
