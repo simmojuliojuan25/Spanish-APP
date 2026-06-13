@@ -4,10 +4,14 @@ import Anthropic from '@anthropic-ai/sdk'
 const client = new Anthropic()
 
 export async function POST(req: NextRequest) {
-  const { word } = await req.json()
+  const { word, direction = 'en-es' } = await req.json()
   if (!word || word.trim().length < 2) {
     return NextResponse.json({ error: 'Word too short' }, { status: 400 })
   }
+
+  const prompt = direction === 'es-en'
+    ? `Translate this Spanish word or phrase to English: "${word.trim()}". Return ONLY JSON: {"translation":"concise English translation"}`
+    : `Translate this English word or phrase to Spanish: "${word.trim()}". Return ONLY JSON: {"translation":"concise Spanish translation"}`
 
   try {
     const message = await client.messages.create({
@@ -23,7 +27,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `Translate this English word or phrase to Spanish: "${word.trim()}". Return ONLY JSON: {"translation":"concise Spanish translation"}`,
+          content: prompt,
         },
       ],
     })

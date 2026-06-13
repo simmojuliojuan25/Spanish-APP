@@ -3,17 +3,25 @@
 import { useState } from 'react'
 import { VocabWord, Story } from '@/types'
 
+interface TranslationPopup {
+  word: string
+  translation: string | null
+  loading: boolean
+}
+
 export default function StoriesPage() {
   const [story, setStory] = useState<Story | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [source, setSource] = useState<'weekly' | 'all'>('weekly')
   const [hoveredWord, setHoveredWord] = useState<string | null>(null)
+  const [popup, setPopup] = useState<TranslationPopup | null>(null)
 
   async function generate() {
     setLoading(true)
     setError('')
     setStory(null)
+    setPopup(null)
 
     const vocab: VocabWord[] = await fetch('/api/vocabulary').then(r => r.json())
     const pool = source === 'weekly' ? vocab.filter(w => w.is_weekly_focus) : vocab
@@ -44,38 +52,87 @@ export default function StoriesPage() {
     setLoading(false)
   }
 
+  async function handleWordDoubleClick(word: string, knownTranslation?: string) {
+    const clean = word.replace(/[^a-záéíóúüñÁÉÍÓÚÜÑA-Za-z]/gi, '').trim()
+    if (clean.length < 2) return
+
+    if (knownTranslation) {
+      setPopup({ word: clean, translation: knownTranslation, loading: false })
+      return
+    }
+
+    setPopup({ word: clean, translation: null, loading: true })
+    try {
+      const res = await fetch('/api/translate-word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: clean, direction: 'es-en' }),
+      })
+      const data = await res.json()
+      setPopup({ word: clean, translation: data.translation ?? 'Translation unavailable', loading: false })
+    } catch {
+      setPopup({ word: clean, translation: 'Translation unavailable', loading: false })
+    }
+  }
+
+  function renderToken(token: string, key: number, annotationTranslation?: string) {
+    if (/^\s+$/.test(token)) return <span key={key}>{token}</span>
+
+    if (annotationTranslation) {
+      return (
+        <span
+          key={key}
+          className="relative cursor-pointer"
+          onMouseEnter={() => setHoveredWord(token)}
+          onMouseLeave={() => setHoveredWord(null)}
+          onTouchStart={() => setHoveredWord(prev => prev === token ? null : token)}
+          onDoubleClick={() => handleWordDoubleClick(token, annotationTranslation)}
+        >
+          <span className="bg-amber-100 text-amber-900 rounded px-0.5 underline decoration-dotted decoration-amber-400">
+            {token}
+          </span>
+          {hoveredWord === token && (
+            <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none">
+              {annotationTranslation}
+            </span>
+          )}
+        </span>
+      )
+    }
+
+    return (
+      <span
+        key={key}
+        className="cursor-pointer rounded hover:bg-gray-100 transition-colors"
+        onDoubleClick={() => handleWordDoubleClick(token)}
+      >
+        {token}
+      </span>
+    )
+  }
+
   function renderAnnotatedText(text: string, annotations: Record<string, string>) {
     const sortedKeys = Object.keys(annotations).sort((a, b) => b.length - a.length)
-    if (sortedKeys.length === 0) return <span>{text}</span>
 
-    const pattern = new RegExp(`\\b(${sortedKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'gi')
-    const parts = text.split(pattern)
+    // Split text into vocab-word matches and surrounding text chunks
+    const pattern = sortedKeys.length > 0
+      ? new RegExp(`(${sortedKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
+      : null
+
+    const chunks = pattern ? text.split(pattern) : [text]
+    let tokenIndex = 0
 
     return (
       <>
-        {parts.map((part, i) => {
-          const key = sortedKeys.find(k => k.toLowerCase() === part.toLowerCase())
-          if (key) {
-            return (
-              <span
-                key={i}
-                className="relative cursor-pointer"
-                onMouseEnter={() => setHoveredWord(key)}
-                onMouseLeave={() => setHoveredWord(null)}
-                onTouchStart={() => setHoveredWord(prev => prev === key ? null : key)}
-              >
-                <span className="bg-amber-100 text-amber-900 rounded px-0.5 underline decoration-dotted decoration-amber-400">
-                  {part}
-                </span>
-                {hoveredWord === key && (
-                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                    {annotations[key]}
-                  </span>
-                )}
-              </span>
-            )
+        {chunks.map((chunk) => {
+          const annotationKey = sortedKeys.find(k => k.toLowerCase() === chunk.toLowerCase())
+          if (annotationKey) {
+            return renderToken(chunk, tokenIndex++, annotations[annotationKey])
           }
-          return <span key={i}>{part}</span>
+
+          // Split non-vocab chunk into individual word tokens preserving whitespace
+          const subTokens = chunk.split(/(\s+)/)
+          return subTokens.map(sub => renderToken(sub, tokenIndex++))
         })}
       </>
     )
@@ -124,6 +181,7 @@ export default function StoriesPage() {
       {story && (
         <div className="flex flex-col gap-4">
           <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <p className="text-xs text-gray-400 mb-3">Double-click any word to see its English translation</p>
             <p className="text-gray-800 leading-relaxed text-base whitespace-pre-line">
               {renderAnnotatedText(story.text, story.annotations)}
             </p>
@@ -149,6 +207,32 @@ export default function StoriesPage() {
           >
             ↺ Generate another story
           </button>
+        </div>
+      )}
+
+      {/* Translation popup */}
+      {popup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"
+          onClick={() => setPopup(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-5 shadow-2xl border border-gray-200 min-w-[180px] max-w-xs mx-4 text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="font-bold text-gray-800 text-lg mb-1">{popup.word}</p>
+            {popup.loading ? (
+              <p className="text-gray-400 text-sm animate-pulse">Translating…</p>
+            ) : (
+              <p className="text-gray-600 text-sm">{popup.translation}</p>
+            )}
+            <button
+              className="mt-3 text-xs text-gray-400 hover:text-gray-600"
+              onClick={() => setPopup(null)}
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
     </div>
