@@ -141,8 +141,17 @@ export default function DashboardPage() {
     setVocab(ws => ws.map(x => x.id === w.id ? updated : x))
   }
 
-  const visibleWords = wordsExpanded ? vocab : vocab.slice(0, VISIBLE_COUNT)
-  const hiddenCount = vocab.length - VISIBLE_COUNT
+  const weekStart = (() => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = (day === 0 ? -6 : 1 - day)
+    d.setDate(d.getDate() + diff)
+    d.setHours(0, 0, 0, 0)
+    return d
+  })()
+  const thisWeekVocab = vocab.filter(w => new Date(w.created_at) >= weekStart)
+  const visibleWords = wordsExpanded ? thisWeekVocab : thisWeekVocab.slice(0, VISIBLE_COUNT)
+  const hiddenCount = thisWeekVocab.length - VISIBLE_COUNT
 
   if (loading) return <div className="text-gray-400 text-center py-16">Loading…</div>
 
@@ -242,13 +251,13 @@ export default function DashboardPage() {
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-gray-700">
-            Words <span className="text-gray-400 font-normal text-sm">({vocab.length})</span>
+            This week <span className="text-gray-400 font-normal text-sm">({thisWeekVocab.length})</span>
           </h2>
           <Link href="/vocabulary" className="text-emerald-600 text-sm hover:underline">Manage →</Link>
         </div>
 
-        {vocab.length === 0 ? (
-          <p className="text-gray-400 text-sm">No words yet — add one above!</p>
+        {thisWeekVocab.length === 0 ? (
+          <p className="text-gray-400 text-sm">No words added this week yet — add one above!</p>
         ) : (
           <>
             <div className="flex flex-col">
@@ -283,7 +292,7 @@ export default function DashboardPage() {
                 Show {hiddenCount} more…
               </button>
             )}
-            {wordsExpanded && vocab.length > VISIBLE_COUNT && (
+            {wordsExpanded && thisWeekVocab.length > VISIBLE_COUNT && (
               <button
                 onClick={() => setWordsExpanded(false)}
                 className="mt-3 w-full text-center text-sm text-gray-400 hover:text-emerald-600 transition-colors py-1"
