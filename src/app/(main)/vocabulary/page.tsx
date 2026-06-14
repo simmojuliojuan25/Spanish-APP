@@ -19,6 +19,7 @@ export default function VocabularyPage() {
   const [exampleSentence, setExampleSentence] = useState('')
   const [notes, setNotes] = useState('')
   const [tags, setTags] = useState('')
+  const [correctedSuggestion, setCorrectedSuggestion] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [translating, setTranslating] = useState(false)
@@ -43,6 +44,7 @@ export default function VocabularyPage() {
 
   function handleSpanishChange(value: string) {
     setWord(value)
+    setCorrectedSuggestion('')
     if (debounceSpRef.current) clearTimeout(debounceSpRef.current)
     if (value.trim().length < 2) { setTranslation(''); return }
     debounceSpRef.current = setTimeout(async () => {
@@ -54,11 +56,16 @@ export default function VocabularyPage() {
           body: JSON.stringify({ word: value.trim() }),
         })
         const data = await res.json()
-        if (res.ok && data.translation) {
-          setTranslation(data.translation)
-          setExampleSentence(data.example_sentence ?? '')
-          setNotes(data.notes ?? '')
-          setTags(Array.isArray(data.tags) ? data.tags.join(', ') : '')
+        if (res.ok) {
+          if (!data.valid && data.corrected) {
+            setCorrectedSuggestion(data.corrected)
+          }
+          if (data.translation) {
+            setTranslation(data.translation)
+            setExampleSentence(data.example_sentence ?? '')
+            setNotes(data.notes ?? '')
+            setTags(Array.isArray(data.tags) ? data.tags.join(', ') : '')
+          }
         }
       } catch { /* let user fill manually */ } finally { setTranslating(false) }
     }, 800)
@@ -215,6 +222,19 @@ export default function VocabularyPage() {
               )}
             </div>
           </div>
+          {correctedSuggestion && (
+            <p className="text-sm text-amber-600">
+              Did you mean{' '}
+              <button
+                type="button"
+                onClick={() => { handleSpanishChange(correctedSuggestion); setCorrectedSuggestion('') }}
+                className="underline font-semibold hover:text-amber-800"
+              >
+                {correctedSuggestion}
+              </button>
+              ?
+            </p>
+          )}
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Example sentence</label>
             <input value={exampleSentence} onChange={e => setExampleSentence(e.target.value)} placeholder="Me gusta caminar por el parque." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
