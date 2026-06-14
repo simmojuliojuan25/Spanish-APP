@@ -56,9 +56,9 @@ export default function VocabularyPage() {
         const data = await res.json()
         if (res.ok && data.translation) {
           setTranslation(data.translation)
-          if (data.example_sentence) setExampleSentence(s => s || data.example_sentence)
-          if (data.notes) setNotes(n => n || data.notes)
-          if (Array.isArray(data.tags) && data.tags.length) setTags(t => t || data.tags.join(', '))
+          setExampleSentence(data.example_sentence ?? '')
+          setNotes(data.notes ?? '')
+          setTags(Array.isArray(data.tags) ? data.tags.join(', ') : '')
         }
       } catch { /* let user fill manually */ } finally { setTranslating(false) }
     }, 800)
@@ -79,9 +79,9 @@ export default function VocabularyPage() {
         const data = await res.json()
         if (res.ok && data.translation) {
           setWord(data.translation)
-          if (data.example_sentence) setExampleSentence(s => s || data.example_sentence)
-          if (data.notes) setNotes(n => n || data.notes)
-          if (Array.isArray(data.tags) && data.tags.length) setTags(t => t || data.tags.join(', '))
+          setExampleSentence(data.example_sentence ?? '')
+          setNotes(data.notes ?? '')
+          setTags(Array.isArray(data.tags) ? data.tags.join(', ') : '')
         }
       } catch { /* let user fill manually */ } finally { setTranslating(false) }
     }, 800)
