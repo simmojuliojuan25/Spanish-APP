@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const message = await client.messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 128,
+      max_tokens: 256,
       system: [
         {
           type: 'text',
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `Is "${word.trim()}" a correctly spelled Spanish word or phrase? Return ONLY JSON: {"valid":true/false,"corrected":"corrected spelling if invalid, else omit","translation":"concise English translation"}`,
+          content: `Is "${word.trim()}" a correctly spelled Spanish word or phrase? Return ONLY JSON: {"valid":true/false,"corrected":"corrected spelling if invalid, else omit","translation":"concise English translation","example_sentence":"a natural Spanish sentence using the word","notes":"brief grammatical note e.g. irregular verb, feminine noun","tags":["tag1","tag2"]}`,
         },
       ],
     })

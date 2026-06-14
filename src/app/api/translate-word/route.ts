@@ -10,13 +10,13 @@ export async function POST(req: NextRequest) {
   }
 
   const prompt = direction === 'es-en'
-    ? `Translate this Spanish word or phrase to English: "${word.trim()}". Return ONLY JSON: {"translation":"concise English translation"}`
-    : `Translate this English word or phrase to Spanish: "${word.trim()}". Return ONLY JSON: {"translation":"concise Spanish translation"}`
+    ? `Translate this Spanish word or phrase to English: "${word.trim()}". Return ONLY JSON: {"translation":"concise English translation","example_sentence":"a natural Spanish sentence using the word","notes":"brief grammatical note e.g. irregular verb, feminine noun","tags":["tag1","tag2"]}`
+    : `Translate this English word or phrase to Spanish: "${word.trim()}". Return ONLY JSON: {"translation":"concise Spanish translation","example_sentence":"a natural Spanish sentence using the translated word","notes":"brief grammatical note e.g. irregular verb, feminine noun","tags":["tag1","tag2"]}`
 
   try {
     const message = await client.messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 64,
+      max_tokens: 256,
       system: [
         {
           type: 'text',
