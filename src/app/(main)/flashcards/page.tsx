@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import FlashCard from '@/components/FlashCard'
 import { SRSCard, SRSRating } from '@/types'
+import { getWeekKey, getSelectedWeeks } from '@/lib/weeks'
 
 export default function FlashCardsPage() {
   const [cards, setCards] = useState<SRSCard[]>([])
@@ -13,7 +14,10 @@ export default function FlashCardsPage() {
 
   async function load() {
     const data = await fetch('/api/srs').then(r => r.json())
-    setCards(Array.isArray(data) ? data : [])
+    const all: SRSCard[] = Array.isArray(data) ? data : []
+    const weeks = getSelectedWeeks()
+    const filtered = all.filter(c => c.vocab && weeks.includes(getWeekKey(c.vocab.created_at)))
+    setCards(filtered)
     setIndex(0)
     setDone(false)
     setReviewed(0)

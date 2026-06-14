@@ -1,29 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { VocabWord, QuizQuestion } from '@/types'
+import { getWeekKey, getSelectedWeeks } from '@/lib/weeks'
 
 type Phase = 'setup' | 'loading' | 'questions' | 'results'
 
 export default function QuizPage() {
   const [phase, setPhase] = useState<Phase>('setup')
   const [source, setSource] = useState<'weekly' | 'all'>('weekly')
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([])
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [answers, setAnswers] = useState<(number | null)[]>([])
   const [current, setCurrent] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [error, setError] = useState('')
 
+  useEffect(() => { setSelectedWeeks(getSelectedWeeks()) }, [])
+
   async function startQuiz() {
     setPhase('loading')
     setError('')
 
     const vocab: VocabWord[] = await fetch('/api/vocabulary').then(r => r.json())
-    const pool = source === 'weekly' ? vocab.filter(w => w.is_weekly_focus) : vocab
+    const weeks = getSelectedWeeks()
+    const pool = source === 'weekly'
+      ? vocab.filter(w => weeks.includes(getWeekKey(w.created_at)))
+      : vocab
 
     if (pool.length < 4) {
       setError(source === 'weekly'
-        ? 'You need at least 4 weekly focus words to generate a quiz. Add more or switch to All words.'
+        ? 'You need at least 4 words across your selected weeks to generate a quiz. Add more words or include more weeks from the Vocabulary page.'
         : 'You need at least 4 words in your vocabulary to generate a quiz.')
       setPhase('setup')
       return
@@ -91,7 +98,7 @@ export default function QuizPage() {
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
                 >
-                  {opt === 'weekly' ? '⭐ This week\'s words' : '📚 All vocabulary'}
+                  {opt === 'weekly' ? `📅 Selected weeks (${selectedWeeks.length})` : '📚 All vocabulary'}
                 </button>
               ))}
             </div>

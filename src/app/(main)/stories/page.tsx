@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { VocabWord, Story } from '@/types'
+import { getWeekKey, getSelectedWeeks } from '@/lib/weeks'
 
 interface TranslationPopup {
   word: string
@@ -14,8 +15,11 @@ export default function StoriesPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [source, setSource] = useState<'weekly' | 'all'>('weekly')
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([])
   const [hoveredWord, setHoveredWord] = useState<string | null>(null)
   const [popup, setPopup] = useState<TranslationPopup | null>(null)
+
+  useEffect(() => { setSelectedWeeks(getSelectedWeeks()) }, [])
 
   async function generate() {
     setLoading(true)
@@ -24,11 +28,14 @@ export default function StoriesPage() {
     setPopup(null)
 
     const vocab: VocabWord[] = await fetch('/api/vocabulary').then(r => r.json())
-    const pool = source === 'weekly' ? vocab.filter(w => w.is_weekly_focus) : vocab
+    const weeks = getSelectedWeeks()
+    const pool = source === 'weekly'
+      ? vocab.filter(w => weeks.includes(getWeekKey(w.created_at)))
+      : vocab
 
     if (pool.length === 0) {
       setError(source === 'weekly'
-        ? 'No weekly focus words set. Add some via the Vocabulary page.'
+        ? 'No words in your selected weeks. Add words or include more weeks from the Vocabulary page.'
         : 'No vocabulary yet. Add words first.')
       setLoading(false)
       return
@@ -156,7 +163,7 @@ export default function StoriesPage() {
                     : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
               >
-                {opt === 'weekly' ? '⭐ This week\'s words' : '📚 All vocabulary'}
+                {opt === 'weekly' ? `📅 Selected weeks (${selectedWeeks.length})` : '📚 All vocabulary'}
               </button>
             ))}
           </div>

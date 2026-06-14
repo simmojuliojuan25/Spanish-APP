@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { VocabWord } from '@/types'
+import { getWeekKey, getCurrentWeekKey, formatWeekLabel, getSelectedWeeks, saveSelectedWeeks } from '@/lib/weeks'
 
 type Mode = 'list' | 'add'
 
@@ -25,6 +26,12 @@ export default function VocabularyPage() {
   const [translating, setTranslating] = useState(false)
   const debounceSpRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceEnRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const currentWeekKey = useMemo(() => getCurrentWeekKey(), [])
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([currentWeekKey])
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set([currentWeekKey]))
+
+  useEffect(() => { setSelectedWeeks(getSelectedWeeks()) }, [])
 
   async function load() {
     try {
@@ -57,9 +64,7 @@ export default function VocabularyPage() {
         })
         const data = await res.json()
         if (res.ok) {
-          if (!data.valid && data.corrected) {
-            setCorrectedSuggestion(data.corrected)
-          }
+          if (!data.valid && data.corrected) setCorrectedSuggestion(data.corrected)
           if (data.translation) {
             setTranslation(data.translation)
             setExampleSentence(data.example_sentence ?? '')
@@ -141,7 +146,6 @@ export default function VocabularyPage() {
   }
 
   async function randomWeekly() {
-    // Clear all current weekly focus, then randomly pick 5
     const shuffled = [...words].sort(() => Math.random() - 0.5).slice(0, 5)
     const shuffledIds = new Set(shuffled.map(w => w.id))
     await Promise.all(words.map(w =>
@@ -154,6 +158,36 @@ export default function VocabularyPage() {
     load()
   }
 
+  function toggleExpanded(weekKey: string) {
+    setExpandedWeeks(prev => {
+      const next = new Set(prev)
+      if (next.has(weekKey)) next.delete(weekKey)
+      else next.add(weekKey)
+      return next
+    })
+  }
+
+  function toggleWeekSelected(weekKey: string) {
+    if (weekKey === currentWeekKey) return
+    setSelectedWeeks(prev => {
+      const next = prev.includes(weekKey)
+        ? prev.filter(w => w !== weekKey)
+        : [...prev, weekKey]
+      saveSelectedWeeks(next)
+      return next
+    })
+  }
+
+  const wordsByWeek = useMemo(() => {
+    const map = new Map<string, VocabWord[]>()
+    for (const w of words) {
+      const key = getWeekKey(w.created_at)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(w)
+    }
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [words])
+
   const filtered = words.filter(w =>
     w.word.toLowerCase().includes(search.toLowerCase()) ||
     w.translation.toLowerCase().includes(search.toLowerCase())
@@ -161,6 +195,43 @@ export default function VocabularyPage() {
 
   if (loading) return <div className="text-gray-400 text-center py-16">Loading…</div>
   if (loadError) return <div className="text-red-500 text-center py-16">Failed to load vocabulary: {loadError}</div>
+
+  function WordItem({ w }: { w: VocabWord }) {
+    return (
+      <div className="px-4 py-3 flex items-start gap-3">
+        <button
+          onClick={() => toggleWeekly(w)}
+          title={w.is_weekly_focus ? 'Remove from this week' : 'Add to this week'}
+          className={`mt-0.5 text-lg leading-none transition-transform hover:scale-110 ${w.is_weekly_focus ? 'opacity-100' : 'opacity-30'}`}
+        >
+          ⭐
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="font-semibold text-gray-800">{w.word}</span>
+            <span className="text-gray-500 text-sm">{w.translation}</span>
+          </div>
+          {w.example_sentence && (
+            <p className="text-xs text-gray-400 italic mt-0.5">{w.example_sentence}</p>
+          )}
+          {w.tags.length > 0 && (
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {w.tags.map(t => (
+                <span key={t} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{t}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => deleteWord(w.id)}
+          className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"
+          title="Delete"
+        >
+          ×
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4 py-4">
@@ -265,45 +336,64 @@ export default function VocabularyPage() {
         className="border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white"
       />
 
-      {filtered.length === 0 ? (
-        <p className="text-gray-400 text-center py-8">No words yet. Add one above!</p>
+      {search ? (
+        filtered.length === 0 ? (
+          <p className="text-gray-400 text-center py-8">No words match your search.</p>
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col divide-y divide-gray-50">
+            {filtered.map(w => <WordItem key={w.id} w={w} />)}
+          </div>
+        )
       ) : (
-        <div className="flex flex-col gap-2">
-          {filtered.map(w => (
-            <div key={w.id} className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100 flex items-start gap-3">
-              <button
-                onClick={() => toggleWeekly(w)}
-                title={w.is_weekly_focus ? 'Remove from this week' : 'Add to this week'}
-                className={`mt-0.5 text-lg leading-none transition-transform hover:scale-110 ${w.is_weekly_focus ? 'opacity-100' : 'opacity-30'}`}
-              >
-                ⭐
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-semibold text-gray-800">{w.word}</span>
-                  <span className="text-gray-500 text-sm">{w.translation}</span>
-                </div>
-                {w.example_sentence && (
-                  <p className="text-xs text-gray-400 italic mt-0.5">{w.example_sentence}</p>
-                )}
-                {w.tags.length > 0 && (
-                  <div className="flex gap-1 mt-1 flex-wrap">
-                    {w.tags.map(t => (
-                      <span key={t} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{t}</span>
-                    ))}
+        wordsByWeek.length === 0 ? (
+          <p className="text-gray-400 text-center py-8">No words yet. Add one above!</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {wordsByWeek.map(([weekKey, weekWords]) => {
+              const isCurrentWeek = weekKey === currentWeekKey
+              const isExpanded = expandedWeeks.has(weekKey)
+              const isSelected = selectedWeeks.includes(weekKey)
+              return (
+                <div key={weekKey} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="flex items-center px-4 py-3 gap-3">
+                    <button
+                      onClick={() => toggleExpanded(weekKey)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors text-xs w-4 text-center"
+                    >
+                      {isExpanded ? '▼' : '▶'}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-gray-700">{formatWeekLabel(weekKey)}</span>
+                      {isCurrentWeek && (
+                        <span className="ml-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Current</span>
+                      )}
+                      <span className="ml-2 text-xs text-gray-400">
+                        {weekWords.length} word{weekWords.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => toggleWeekSelected(weekKey)}
+                      disabled={isCurrentWeek}
+                      title={isCurrentWeek ? 'Current week is always included' : isSelected ? 'Remove from practice' : 'Include in quiz, stories & flashcards'}
+                      className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      } ${isCurrentWeek ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}
+                    >
+                      {isSelected ? '✓ Included' : '+ Include'}
+                    </button>
                   </div>
-                )}
-              </div>
-              <button
-                onClick={() => deleteWord(w.id)}
-                className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"
-                title="Delete"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 flex flex-col divide-y divide-gray-50">
+                      {weekWords.map(w => <WordItem key={w.id} w={w} />)}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
       )}
     </div>
   )
