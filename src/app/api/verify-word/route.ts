@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       system: [
         {
           type: 'text',
-          text: 'You are a Spanish dictionary. Respond only with JSON, no explanation.',
+          text: 'You are a Spanish dictionary. Respond only with JSON, no explanation. Always use correct Spanish spelling including all diacritics (á, é, í, ó, ú, ñ, ü) in any Spanish text you produce.',
           cache_control: { type: 'ephemeral' },
         },
       ],
