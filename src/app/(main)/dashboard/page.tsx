@@ -321,6 +321,11 @@ export default function DashboardPage() {
           <span className="font-semibold">Stories</span>
           <span className="text-amber-200 text-xs">AI-generated B1 stories</span>
         </Link>
+        <Link href="/tenses" className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl p-4 shadow-sm flex flex-col gap-1 transition-colors">
+          <span className="text-2xl">🔤</span>
+          <span className="font-semibold">Tenses</span>
+          <span className="text-rose-200 text-xs">Practice verb conjugations</span>
+        </Link>
         <Link href="/vocabulary" className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl p-4 shadow-sm flex flex-col gap-1 transition-colors">
           <span className="text-2xl">📚</span>
           <span className="font-semibold">Vocabulary</span>

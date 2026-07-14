@@ -9,6 +9,7 @@ const links = [
   { href: '/flashcards', label: 'Flash Cards', icon: '🃏' },
   { href: '/quiz', label: 'Quiz', icon: '✏️' },
   { href: '/stories', label: 'Stories', icon: '📖' },
+  { href: '/tenses', label: 'Tenses', icon: '🔤' },
 ]
 
 export default function Nav() {

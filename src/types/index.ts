@@ -35,3 +35,14 @@ export interface Story {
   vocabulary_used: string[]
   annotations: Record<string, string>
 }
+
+export interface ConjugationForm {
+  pronoun: string
+  form: string
+}
+
+export interface ConjugationTable {
+  verb: string
+  tense: string
+  forms: ConjugationForm[]
+}
