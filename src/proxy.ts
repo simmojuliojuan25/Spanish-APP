@@ -2,7 +2,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { SESSION_COOKIE, SESSION_VALUE } from '@/lib/auth'
 
-const PUBLIC_PATHS = ['/login', '/api/login']
+const PUBLIC_PATHS = [
+  '/login',
+  '/api/login',
+  '/manifest.webmanifest',
+  '/sw.js',
+  '/icon-192x192.png',
+  '/icon-512x512.png',
+  '/icon-maskable-192x192.png',
+  '/icon-maskable-512x512.png',
+  '/apple-touch-icon.png',
+]
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
