@@ -46,3 +46,10 @@ export interface ConjugationTable {
   tense: string
   forms: ConjugationForm[]
 }
+
+export interface TenseQuizQuestion {
+  sentence: string
+  options: string[]
+  correct_index: number
+  tense: string
+}
