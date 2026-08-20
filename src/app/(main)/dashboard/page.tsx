@@ -166,8 +166,8 @@ export default function DashboardPage() {
 
       {/* Quick add */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div className="relative flex-1 w-full">
             <input
               value={swapped ? translationInput : spanishInput}
               onChange={e => swapped ? handleEnglishChange(e.target.value) : handleSpanishChange(e.target.value)}
@@ -186,11 +186,11 @@ export default function DashboardPage() {
             type="button"
             onClick={() => setSwapped(s => !s)}
             title="Swap English / Spanish"
-            className="px-2 text-gray-400 hover:text-emerald-600 transition-colors text-base flex-shrink-0"
+            className="self-center rotate-90 sm:rotate-0 px-2 py-1 text-gray-400 hover:text-emerald-600 transition-colors text-base flex-shrink-0"
           >
             ⇄
           </button>
-          <div className="relative flex-1">
+          <div className="relative flex-1 w-full">
             <input
               value={swapped ? spanishInput : translationInput}
               onChange={e => swapped ? handleSpanishChange(e.target.value) : handleEnglishChange(e.target.value)}
@@ -208,7 +208,7 @@ export default function DashboardPage() {
           <button
             onClick={handleAdd}
             disabled={adding || !spanishInput.trim() || !translationInput.trim()}
-            className="w-10 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xl flex items-center justify-center flex-shrink-0 transition-colors"
+            className="w-full sm:w-10 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xl flex items-center justify-center flex-shrink-0 transition-colors"
           >
             {adding ? '…' : '+'}
           </button>
